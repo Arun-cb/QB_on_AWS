@@ -47,7 +47,12 @@ const FnTableComponent = ({
   searchWord,
   current,
   pagination,
-  custom_action
+  custom_action,
+  sortcolumn,
+  setSortColumn,
+  sortorder,
+  setSortOrder,
+  sorting
 }) => {
   let { authTokens, user } = useContext(AuthContext);
   let { userSettings } = useContext(PreContext);
@@ -60,7 +65,7 @@ const FnTableComponent = ({
   const [currentPage, setCurrentPage] = useState(current ? current : 1);
   const firstPageIndex = (currentPage - 1) * PageSize;
   const currentTableData = data;
-
+  
   const fnGetPermissions = async () => {
     let res = await fetch(
       `${process.env.REACT_APP_SERVER_URL}/api/join_user_group_access/${user.user_id}/${menu_id}/`,
@@ -101,63 +106,21 @@ const FnTableComponent = ({
     }
     setTableData(currentTableData);
   };
-
-  const getFormattedDate = () => {};
   
-  // const downloadExcel = (data) => {
-  //  const excel_heading = csv_heading.map(key => key.key)
-  // const excel_data = data.map((obj) => {
-  //   const newObj = {};
-  //   excel_heading.forEach((key) => {
-  //       newObj[key] = obj[key];
-  //     });
-  //     return newObj;
-  //   });
-  //   const worksheet = XLSX.utils.json_to_sheet(excel_data);
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-  //   XLSX.writeFile(workbook, "DataSheet.xlsx");
-  // };
-
-  try {
-    const fnHandlesorting = (sortField, sortOrder) => {
-      if (sortField && sortOrder === "asc") {
-        const sorted = [...currentTableData].sort((a, b) =>
-          a[sortField].toString().toUpperCase() <
-          b[sortField].toString().toUpperCase()
-            ? -1
-            : 1
-        );
-        setTableData(sorted);
-      }
-
-      if (sortField && sortOrder === "desc") {
-        const sorted = [...currentTableData].sort((a, b) =>
-          a[sortField].toString().toUpperCase() >
-          b[sortField].toString().toUpperCase()
-            ? -1
-            : 1
-        );
-        setTableData(sorted);
-      }
-    };
-
-
     useEffect(() => {
       fnDataSet();
       fnGetPermissions();
       start(firstPageIndex);
-      getFormattedDate();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data, currentPage]);
 
     return (
-      <div className={`${custom_action == true ? 'col-10' : ''} sc_cl_div overflow-auto`}>
+      <div className={`${custom_action == true ? 'col-9' : ''} sc_cl_div overflow-auto`}>
         <Table
           className="sc_cl_table m-auto table-responsive"
           hover
         >
-          <FnTableHead {...{ columns, fnHandlesorting, action }} />
+          <FnTableHead {...{ columns, action, sortcolumn, setSortColumn, sortorder, setSortOrder, sorting }} />
           <FnTableBody
             {...{
               checkupd,
@@ -193,7 +156,7 @@ const FnTableComponent = ({
         ) : ("")}
       </div>
     );
-  } catch (error) {}
+  
 };
 
 export default FnTableComponent;
