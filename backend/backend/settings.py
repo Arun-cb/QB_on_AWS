@@ -221,10 +221,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://51.20.68.42:3000",
     "http://51.20.68.42:8443",
     "https://51.20.68.42:8443",
+    "https://51.20.68.42:8443/"
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
-# CORS_ORIGIN_ALLOW_ALL = True
+# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ORIGIN_ALLOW_ALL = True
 
 # TO store image files in Reacr folder
 # Store image in local
