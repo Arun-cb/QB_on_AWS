@@ -13,10 +13,10 @@
 import { useState } from "react";
 import { MdKeyboardArrowUp, MdKeyboardArrowDown } from "react-icons/md";
 
-const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, setSortOrder, sorting }) => {
-  
-  const fnHandleSortingChange = (col, index, sortorder) => {
-    setSortColumn(col);
+const FnTableHead = ({ columns, fnHandlesorting, action }) => {
+  const [order, setOrder] = useState("asc");
+
+  const fnHandleSortingChange = (col, index) => {
     var element = document.getElementsByClassName("sc_cl_sortup");
     for (var i = 0; i < element.length; i++) {
       document
@@ -27,7 +27,8 @@ const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, se
       [i].classList.remove("text-primary");
     }
 
-    if (sortorder === false) {
+    if (order === "asc") {
+      fnHandlesorting(col, order);
       document
         .getElementById(col)
         .getElementsByClassName("sc_cl_sortdown")[0]
@@ -36,9 +37,10 @@ const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, se
         .getElementById(col)
         .getElementsByClassName("sc_cl_sortup")[0]
         .classList.add("text-primary");
-        setSortOrder(true);
+      setOrder("desc");
     }
-    if (sortorder === true) {
+    if (order === "desc") {
+      fnHandlesorting(col, order);
       document
         .getElementById(col)
         .getElementsByClassName("sc_cl_sortdown")[0]
@@ -47,7 +49,7 @@ const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, se
         .getElementById(col)
         .getElementsByClassName("sc_cl_sortup")[0]
         .classList.remove("text-primary");
-        setSortOrder(false);
+      setOrder("asc");
     }
   };
 
@@ -61,7 +63,7 @@ const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, se
                 key={data}
                 className="sc_cl_th "
                 id={data}
-                onClick={() => fnHandleSortingChange(data, index, sortorder)}
+                onClick={() => fnHandleSortingChange(data, index)}
               >
                 <div className="d-flex justify-content-between align-items-center">
                   <div className="d-flex flex-column f-left">
@@ -71,11 +73,11 @@ const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, se
                   <div className="d-flex f-right flex-column">
                     <MdKeyboardArrowUp
                       id="sc_id_sortup"
-                      className={`${sorting ==false ? 'visually-hidden' : ''} sc_cl_sortup`}
+                      className="sc_cl_sortup"
                     />
                     <MdKeyboardArrowDown
                       id="sc_id_sortdown"
-                      className={`${sorting ==false ? 'visually-hidden' : ''} sc_cl_sortdown`}
+                      className="sc_cl_sortdown"
                     />
                   </div>
                 </div>
@@ -102,7 +104,7 @@ const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, se
                 key={data}
                 className="sc_cl_th"
                 id={data}
-                onClick={sorting == false ? null : () => fnHandleSortingChange(data, index, sortorder)}
+                onClick={() => fnHandleSortingChange(data, index)}
               >
                 <div className="d-flex justify-content-between align-items-center">
                   <div className="d-flex flex-column f-left">
@@ -112,12 +114,12 @@ const FnTableHead = ({ columns, action, sortcolumn, setSortColumn, sortorder, se
                   <div className="d-flex f-right flex-column">
                     <MdKeyboardArrowUp
                       id="sc_id_sortup"
-                      className={`${sorting ==false ? 'visually-hidden' : ''} sc_cl_sortup`}
+                      className="sc_cl_sortup"
                     // sc_cl_visabilitynone
                     />
                     <MdKeyboardArrowDown
                       id="sc_id_sortdown"
-                      className={`${sorting ==false ? 'visually-hidden' : ''} sc_cl_sortdown`}
+                      className="sc_cl_sortdown"
                     // sc_cl_visabilitynone
                     />
                   </div>

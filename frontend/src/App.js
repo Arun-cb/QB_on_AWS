@@ -71,6 +71,7 @@ function App() {
                   element={<FnGroupAccessDefinitionForm />}
                   path="/group_access_form/:id"
                 />
+
                 <Route
                   element={<FnStepReportBuilder />}
                   path="/rb_builder/:id"

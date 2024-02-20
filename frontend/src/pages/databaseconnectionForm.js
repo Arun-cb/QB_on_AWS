@@ -25,11 +25,8 @@ const FnDatabaseConnectionForm = ({
   viewvalue,
   diverts,
   setdiverts,
-  configData,
-  typeItem
+  configData
 }) => {
-  console.log('diverts', diverts)
-
   let { authTokens, user } = useContext(AuthContext);
   const [adata, setAdata] = useState({
     created_by: user.user_id,
@@ -42,59 +39,25 @@ const FnDatabaseConnectionForm = ({
   // const [helper, setHelper] = useState([]);
   const [connectionstatus, setConnectionStatus] = useState();
 
+  const [getdbselect, setDBSelect] = useState()
+
 
   //formComp test
-  let fieldData = [];
 
-  if (adata["connection_type"] === "MYSQL" || (adata["connection_type"] === undefined && typeItem === "MYSQL")) {
-    // setAdata({...adata, "connection_type": "MYSQL"})
-
-    fieldData = [
-      { id: 1, name: 'connection_name', label: 'Connection Name', placeholder: 'Enter Connection Name', type: 'text', maxlen: '500', ismandatory: 'Y' },
-      { id: 2, name: 'user_name', label: 'User Name', placeholder: 'Enter User Name', type: 'text', maxlen: '100', ismandatory: 'Y' },
-      { id: 3, name: 'password', label: 'Password', placeholder: 'Enter Password', type: 'password', maxlen: '200', ismandatory: 'N' },
-      { id: 4, name: 'host_id', label: 'Host Id', placeholder: 'Enter Host Id', type: 'text', maxlen: '200', ismandatory: 'Y' },
-      { id: 5, name: 'port', label: 'Port', placeholder: 'Enter Port', type: 'number', maxlen: '200', ismandatory: 'Y' },
-      { id: 6, name: 'database_name', label: 'Database Name', placeholder: 'Enter Database Name', type: 'text', maxlen: '500', ismandatory: 'Y' },
-    ]
-  }
-  else if (adata["connection_type"] === "Oracle" || (adata["connection_type"] === undefined && typeItem === "Oracle")) {
-
-    // setAdata({...adata, "connection_type" : "Oracle"})
-
-    fieldData = [
-      { id: 1, name: 'connection_name', label: 'Connection Name', placeholder: 'Enter Connection Name', type: 'text', maxlen: '500', ismandatory: 'Y' },
-      { id: 2, name: 'user_name', label: 'User Name', placeholder: 'Enter User Name', type: 'text', maxlen: '100', ismandatory: 'Y' },
-      { id: 3, name: 'password', label: 'Password', placeholder: 'Enter Password', type: 'password', maxlen: '200', ismandatory: 'N' },
-      { id: 4, name: 'host_id', label: 'Host Id', placeholder: 'Enter Host Id', type: 'text', maxlen: '200', ismandatory: 'Y' },
-      { id: 5, name: 'port', label: 'Port', placeholder: 'Enter Port', type: 'number', maxlen: '200', ismandatory: 'Y' },
-      { id: 6, name: 'service_name_or_SID', label: 'Service Name/SID', placeholder: 'Enter Service Name/SID', type: 'text', maxlen: '200', ismandatory: 'Y' },
-    ]
-
-  }
-  else if (adata["connection_type"] === "Snowflake" || (adata["connection_type"] === undefined && typeItem === "Snowflake")) {
-
-    // setAdata({...adata, "connection_type" : "Snowflake"})
-
-    fieldData = [
-      { id: 1, name: 'connection_name', label: 'Connection Name', placeholder: 'Enter Connection Name', type: 'text', maxlen: '500', ismandatory: 'Y' },
-      { id: 2, name: 'user_name', label: 'User Name', placeholder: 'Enter User Name', type: 'text', maxlen: '100', ismandatory: 'Y' },
-      { id: 3, name: 'password', label: 'Password', placeholder: 'Enter Password', type: 'password', maxlen: '200', ismandatory: 'N' },
-      { id: 4, name: 'account_id', label: 'Account Id', placeholder: 'Enter Account Id', type: 'text', maxlen: '200', ismandatory: 'Y' },
-      { id: 5, name: 'schema_name', label: 'Schema Name', placeholder: 'Enter Schema Name', type: 'text', maxlen: '500', ismandatory: 'N' },
-      { id: 6, name: 'database_name', label: 'Database Name', placeholder: 'Enter Database Name', type: 'text', maxlen: '500', ismandatory: 'N' },
-      { id: 7, name: 'warehouse_id', label: 'Warehouse Id', placeholder: 'Enter Warehouse Id', type: 'text', maxlen: '200', ismandatory: 'N' },
-      { id: 8, name: 'role', label: 'Role', placeholder: 'Enter Role', type: 'text', maxlen: '200', ismandatory: 'N' },
-    ]
-
-  }
-  else {
-    fieldData = []
-  }
+  const fieldData = [
+    { id: 1, name: 'connection_name', label: 'Connection Name', placeholder: 'Enter Connection Name', type: 'text', maxlen: '500', ismandatory: 'Y' },
+    { id: 2, name: 'database_name', label: 'Database Name', placeholder: 'Enter Database Name', type: 'text', maxlen: '500', ismandatory: 'Y' },
+    { id: 3, name: 'database_type', label: 'Database Type', placeholder: 'Enter Database Type', type: 'select', maxlen: '500', ismandatory: 'Y' },
+    { id: 4, name: 'user_name', label: 'User Name', placeholder: 'Enter User Name', type: 'text', maxlen: '100', ismandatory: 'Y' },
+    { id: 5, name: 'password', label: 'Password', placeholder: 'Enter Password', type: 'password', maxlen: '200', ismandatory: 'N' },
+    { id: 6, name: 'host_id', label: 'Host Id', placeholder: 'Enter Host Id', type: 'text', maxlen: '200', ismandatory: 'Y' },
+    { id: 7, name: 'port', label: 'Port', placeholder: 'Enter Port', type: 'number', maxlen: '200', ismandatory: 'Y' },
+    { id: 8, name: 'service_name_or_SID', label: 'Service Name/SID', placeholder: 'Enter Service Name/SID', type: 'text', maxlen: '200', ismandatory: 'N' },
+  ]
 
 
   let selectedData = {
-    "connection_type": [
+    "database_type": [
       {
         value: "MYSQL",
         label: "MYSQL"
@@ -116,7 +79,33 @@ const FnDatabaseConnectionForm = ({
 
   //  Function for updating perspective details
   const fnUpdateDetails = async () => {
-    let con_res = await fetch(
+    let res = await fetch(
+      `${process.env.REACT_APP_SERVER_URL}/api/upd_rb_db_connect_table/${adata.id}/`,
+      {
+        method: "PUT",
+        body: JSON.stringify(adata),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + String(authTokens.access),
+        },
+      }
+    );
+    let data = await res.json();
+    if (res.status === 200) {
+      Swal.fire({
+        icon: "success",
+        text: "Updated Successfully!",
+      }).then(function () {
+        close(false);
+      });
+    } else {
+      setError(data);
+    }
+  };
+
+  //  Function for inserting perspective details
+  const fnTestConnection = async () => {
+    let res = await fetch(
       `${process.env.REACT_APP_SERVER_URL}/api/rb_test_db_connection`,
       {
         method: "POST",
@@ -127,57 +116,34 @@ const FnDatabaseConnectionForm = ({
         },
       }
     );
-    let con_data = await con_res.json();
-
-    if (con_res.status === 200) {
-      let res = await fetch(
-        `${process.env.REACT_APP_SERVER_URL}/api/upd_rb_connect_definition_table/${adata.id}/`,
-        {
-          method: "PUT",
-          body: JSON.stringify(adata),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + String(authTokens.access),
-          },
-        }
-      );
-      let data = await res.json();
-
-      if (res.status === 200) {
-        setError();
-        setConnectionStatus(con_data)
-        Swal.fire({
-          icon: "success",
-          text: "Connection Updated Successfully!",
-        }).then(function () {
-          close(false);
-        });
-      } else {
-        setError(data);
-      }
+    let data = await res.json();
+    if (res.status === 200) {
+      setError();
+      // setAction();
+      setConnectionStatus(data);
+      // Swal.fire({
+      //   icon: "success",
+      //   text: "Created Successfully!",
+      // }).then(function () {
+      //   close(false);
+      // });
     }
-    else if (con_res.status === 404) {
-      setError(con_data);
+    else if (res.status === 500) {
+      setConnectionStatus('error')
+      setError();
     }
     else {
-      setError();
-      setConnectionStatus(con_data)
+      setError(data);
     }
-  };
+  }
 
   //  Function for inserting perspective details
-  const fnTestConnection = async () => {
-    let reqData
-    if(typeItem !== undefined){
-      reqData = {...adata, "connection_type": typeItem}
-    } else {
-      reqData = {...adata}
-    }
+  const fnSubmitDetails = async () => {
     let res = await fetch(
-      `${process.env.REACT_APP_SERVER_URL}/api/rb_test_db_connection`,
+      `${process.env.REACT_APP_SERVER_URL}/api/ins_rb_db_connect_table`,
       {
         method: "POST",
-        body: JSON.stringify(reqData),
+        body: JSON.stringify(adata),
         headers: {
           "Content-Type": "application/json",
           Authorization: "Bearer " + String(authTokens.access),
@@ -185,76 +151,17 @@ const FnDatabaseConnectionForm = ({
       }
     );
     let data = await res.json();
-
     if (res.status === 200) {
       setError();
-      setConnectionStatus(data);
-    }
-    else if (res.status === 404) {
-      setError(data);
-    }
-    else {
-      setError();
-      setConnectionStatus(data)
-    }
-  }
-
-  //  Function for inserting perspective details
-  const fnSubmitDetails = async () => {
-    let reqData
-    if(typeItem !== undefined){
-      reqData = {...adata, "connection_type": typeItem}
+      setAction();
+      Swal.fire({
+        icon: "success",
+        text: "Created Successfully!",
+      }).then(function () {
+        close(false);
+      });
     } else {
-      reqData = {...adata}
-    }
-    console.log('reqData', reqData)
-
-    let con_res = await fetch(
-      `${process.env.REACT_APP_SERVER_URL}/api/rb_test_db_connection`,
-      {
-        method: "POST",
-        body: JSON.stringify(reqData),
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + String(authTokens.access),
-        },
-      }
-    );
-    let con_data = await con_res.json();
-
-    if (con_res.status === 200) {
-      let res = await fetch(
-        `${process.env.REACT_APP_SERVER_URL}/api/ins_rb_connect_definition_table`,
-        {
-          method: "POST",
-          body: JSON.stringify(reqData),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + String(authTokens.access),
-          },
-        }
-      );
-      let data = await res.json();
-      if (res.status === 200) {
-        setError();
-        setAction();
-        setConnectionStatus(con_data)
-        Swal.fire({
-          icon: "success",
-          text: "Connection Saved Successfully!",
-        }).then(function () {
-          close(false);
-        });
-      } else {
-        setError(data);
-      }
-    }
-    else if (con_res.status === 404) {
-      setError(con_data);
-    }
-    else {
-      setError();
-      setConnectionStatus(con_data)
+      setError(data);
     }
   };
 
@@ -283,7 +190,7 @@ const FnDatabaseConnectionForm = ({
       const newdata = a.map(
         ({
           id,
-          connection_type,
+          database_type,
           connection_name,
           database_name,
           host_id,
@@ -291,15 +198,11 @@ const FnDatabaseConnectionForm = ({
           user_name,
           password,
           service_name_or_SID,
-          account_id,
-          schema_name,
-          warehouse_id,
-          role,
           created_by,
           last_updated_by,
         }) => ({
           id,
-          connection_type,
+          database_type,
           connection_name,
           database_name,
           host_id,
@@ -307,10 +210,6 @@ const FnDatabaseConnectionForm = ({
           user_name,
           password,
           service_name_or_SID,
-          account_id,
-          schema_name,
-          warehouse_id,
-          role,
           created_by,
           last_updated_by,
         })
@@ -319,9 +218,8 @@ const FnDatabaseConnectionForm = ({
       setAction(true);
       setdiverts(false);
     }
-    // setAdata()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [action, diverts]);
+  }, [action]);
 
   if (adata.last_updated_by !== user.user_id) {
     setAdata({ ...adata, last_updated_by: user.user_id });
@@ -329,6 +227,7 @@ const FnDatabaseConnectionForm = ({
 
   // Onchange function
   const fnInputHandler = (name, value) => {
+    // setAdata({ ...adata, [e.target.name]: e.target.value });
     setAdata((prevState) => ({
       ...prevState,
       [name]: value
@@ -341,21 +240,21 @@ const FnDatabaseConnectionForm = ({
   // const help = helper.filter(user => String(user.page_no)
   //   .includes(String(id))).map((use) => use);
 
+  
   return (
     <div className="sc_cl_div w-100 px-2">
-
-      <div>
+      {/* <div>
         <Form>
           <Form.Group className="sc_cl_form_alignment">
             <div className="sc_cl_field_alignment" >
               <div className="gap-1">
-                <Form.Label className="sc_cl_label" >Connection Type <sup className="text-danger fs-6">*</sup>
+                <Form.Label className="sc_cl_label" >Database Type <sup className="text-danger fs-6">*</sup>
                 </Form.Label>
                 <Form.Select
                   className="ms-2 w-25"
-                  name={"connection_type"}
-                  value={adata["connection_type"] || typeItem || ''}
-                  onChange={(e) => fnInputHandler(e.target.name, e.target.value)}//(e) => setDBSelect(e.target.value)
+                  name={"database_type"}
+                  value={getdbselect}
+                  onChange={(e) => setDBSelect(e.target.value)}
                   disabled={false}
                   size="sm"
                 >
@@ -368,18 +267,17 @@ const FnDatabaseConnectionForm = ({
             </div>
           </Form.Group>
         </Form>
-      </div>
+      </div> */}
 
       <Row className="mt-2 mt-lg-2 sc-cl-main-content">
 
-        <FnFormComponent fields={fieldData} select={selectedData} formData={adata} onchange={fnInputHandler} onsubmit={fnSubmitDetails}
-          errorcode={error} disablevalue={viewvalue} stylename={"sc_cl_input mb-2"} tooltipvalue={false} />
+        <FnFormComponent fields={fieldData} select={selectedData} formData={adata} onchange={fnInputHandler} onsubmit={fnSubmitDetails} errorcode={error} disablevalue={viewvalue} stylename={"sc_cl_input mb-2"} tooltipvalue={false} />
 
         <div>
           {connectionstatus &&
             (<label>status :
               <span className={`${connectionstatus && connectionstatus == "Connected" ? 'text-success' : 'text-danger'} small`}>
-                {connectionstatus ? connectionstatus == "Connected" ? ' success' : connectionstatus : ''}</span>
+                {connectionstatus ? connectionstatus == "Connected" ? ' success' : ' failure' : ''}</span>
             </label>)
           }
         </div>

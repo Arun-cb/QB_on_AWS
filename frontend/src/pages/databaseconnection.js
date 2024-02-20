@@ -48,15 +48,15 @@ const FnDatabaseConnection = () => {
       : process.env.REACT_APP_PAGINATION;
   const endingIndex = startingIndex + Number(PageSize);
 
-  const columns_to = ["connection_name", "connection_type", "user_name"];
-  const columns_type = ["str", "str", "str"];
+  const columns_to = ["connection_name", "database_type", "host_id", "port"];
+  const columns_type = ["str", "str", "str", "str"];
 
   const date_columns = [];
 
   const newadata = adata.map(
     ({
       id,
-      connection_type,
+      database_type,
       connection_name,
       database_name,
       host_id,
@@ -64,15 +64,11 @@ const FnDatabaseConnection = () => {
       user_name,
       password,
       service_name_or_SID,
-      account_id,
-      schema_name,
-      warehouse_id,
-      role,
       created_by,
       last_updated_by,
     }) => ({
       id,
-      connection_type,
+      database_type,
       connection_name,
       database_name,
       host_id,
@@ -80,10 +76,6 @@ const FnDatabaseConnection = () => {
       user_name,
       password,
       service_name_or_SID,
-      account_id,
-      schema_name,
-      warehouse_id,
-      role,
       created_by,
       last_updated_by,
     })
@@ -126,6 +118,7 @@ const FnDatabaseConnection = () => {
     fnGetDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [update, mode, startingIndex, PageSize]); //imageUrl
+
 
   return (
     <div>
