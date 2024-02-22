@@ -219,8 +219,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.100.111:3000",
     "http://localhost:3000",
     "http://51.20.68.42:3000",
-    "http://51.20.68.42:8443",
-    "https://51.20.68.42:8443",
+    "http://13.50.16.149:80",
+    "http://13.50.16.149",
+
 ]
 
 # CORS_ALLOW_ALL_ORIGINS = True
