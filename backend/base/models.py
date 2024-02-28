@@ -281,7 +281,7 @@ class query_definition(models.Model):
     query_name = models.CharField(max_length=255, null=False, blank=False)
     connection_id = models.ForeignKey(
         rb_connect_definition_table, null=False, blank=False, db_column="connection_id", on_delete=models.CASCADE)
-    query_text = models.TextField(null=False, blank=False)
+    query_text = models.TextField(null=True, blank=True)
     created_user = models.CharField(max_length=255, null=False, blank=False)
     created_by = models.IntegerField(null=False, blank=False)
     created_date = models.DateTimeField(auto_now_add=True)

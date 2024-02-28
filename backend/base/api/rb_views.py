@@ -482,29 +482,112 @@ def rb_sql_show_columns(request):
     connnectionrequestdata = reqData.get("getselectedConnections")
     reqTableColumnData = reqData.get("rightItems")
 
-    saved_tables = connnectionrequestdata["savedConnectionItems"]
+    saved_connection = connnectionrequestdata["savedConnectionItems"]
 
-    mydb = sqlConnect.connect(
-        host=saved_tables.get("host_id"),
-        user=saved_tables.get("user_name"),
-        password=saved_tables.get("password"),
-        database=saved_tables.get("database_name"),
-    )
+    # mydb = sqlConnect.connect(
+    #     host=saved_tables.get("host_id"),
+    #     user=saved_tables.get("user_name"),
+    #     password=saved_tables.get("password"),
+    #     database=saved_tables.get("database_name"),
+    # )
 
-    allResults = []
+    # allResults = []
 
-    for table_info in reqTableColumnData:
-        tableName = table_info['table_name']
-        tableId = table_info['table_id']
-        dbCursor = mydb.cursor()
-        dbCursor.execute(f"SHOW COLUMNS FROM {tableName}")
+    # for table_info in reqTableColumnData:
+    #     tableName = table_info['table_name']
+    #     tableId = table_info['table_id']
+    #     dbCursor = mydb.cursor()
+    #     dbCursor.execute(f"SHOW COLUMNS FROM {tableName}")
 
-        results = [{"id": idx, "columnName": row[0], "dataType": row[1].split(
-            '(')[0], "tableId": tableId} for idx, row in enumerate(dbCursor.fetchall(), start=1)]
-        tableResults = {tableName: results}
-        allResults.append(tableResults)
+    #     results = [{"id": idx, "columnName": row[0], "dataType": row[1].split(
+    #         '(')[0], "tableId": tableId} for idx, row in enumerate(dbCursor.fetchall(), start=1)]
+    #     tableResults = {tableName: results}
+    #     allResults.append(tableResults)
 
-    return Response(allResults, status=status.HTTP_200_OK)
+    # return Response(allResults, status=status.HTTP_200_OK)
+
+    db_type = saved_connection.get("connection_type")
+
+    if db_type == 'MYSQL':
+
+        mydb = sqlConnect.connect(
+            host=saved_connection.get("host_id"),
+            user=saved_connection.get("user_name"),
+            password=saved_connection.get("password"),
+            database=saved_connection.get("database_name"),
+        )
+        allResults = []
+
+        for table_info in reqTableColumnData:
+            tableName = table_info['table_name']
+            tableId = table_info['table_id']
+            dbCursor = mydb.cursor()
+            dbCursor.execute(f"SHOW COLUMNS FROM {tableName}")
+
+            results = [{"id": idx, "columnName": row[0], "dataType": row[1].split(
+                '(')[0], "tableId": tableId} for idx, row in enumerate(dbCursor.fetchall(), start=1)]
+            print("results", results)
+            tableResults = {tableName: results}
+            allResults.append(tableResults)
+
+        return Response(allResults, status=status.HTTP_200_OK)
+
+    elif db_type == "Oracle":
+
+        connection_str = f"{saved_connection.get('user_name')}/{saved_connection.get('password')}@{saved_connection.get('host_id')}:{saved_connection.get('port')}/{saved_connection.get('service_name_or_SID')}"
+
+        if cx_Oracle.connect(connection_str):
+
+            mydb = cx_Oracle.connect(connection_str)
+
+            # Create a cursor
+            mycursor = mydb.cursor()
+
+            # Query to retrieve table names from all_tables
+            query = "SELECT table_name FROM all_tables WHERE owner = UPPER(:owner)"
+
+            # Execute the query with the provided owner (schema)
+            mycursor.execute(
+                query, {'owner': saved_connection.get('user_name')})
+
+            # Fetch all table names and create a list of dictionaries
+            table_names = [{"table_id": idx, "table_name": table[0]}
+                           for idx, table in enumerate(mycursor.fetchall(), start=1)]
+
+            # Return the table names as a JSON response
+            return Response(table_names, status=status.HTTP_200_OK)
+
+        else:
+            return Response("Failed", status=status.HTTP_404_NOT_FOUND)
+
+    elif db_type == "Snowflake":
+
+        # Build the connection string
+        connection_str = {
+            'user': saved_connection.get("user_name"),
+            'password': saved_connection.get("password"),
+            'account': saved_connection.get("account_id"),
+            'warehouse': saved_connection.get("warehouse_id"),
+            'database': saved_connection.get("database_name"),
+            'schema': saved_connection.get("schema_name"),
+            'role': saved_connection.get('role'),
+        }
+        allResults = []
+        # Attempt to connect to Snowflake
+        connection = snowflake.connector.connect(**connection_str)
+        for table_info in reqTableColumnData:
+            tableName = table_info['table_name']
+            tableId = table_info['table_id']
+            print("tableName", tableName, f"SHOW COLUMNS FROM {tableName}")
+            dbCursor = connection.cursor()
+            dbCursor.execute(f"SHOW COLUMNS in TABLE {tableName}")
+            results = [{"id": idx, "columnName": row[2], "dataType": json.loads(row[3])['type'], "tableId": tableId} 
+            for idx, row in enumerate(dbCursor.fetchall())]
+            tableResults = {tableName: results}
+            allResults.append(tableResults)
+        return Response(allResults, status=status.HTTP_200_OK)
+    else:
+        return Response("Invalid database type", status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["POST"])
@@ -1086,94 +1169,95 @@ def find_column_alias(aliasList, table_name, colName):
                 return str(alias['setAliasName'])
 
 def fn_ins_upd_column_selection(data,table_name,table_id,def_query_id,created_by, last_updated_by):
-    Column_sel = data['Page3']
-    Alias_data = data['Page4']['getcolumnalias']
-    Aggregation_data = data['Page5']
-    if len(Column_sel) > 0:
-        for column_data in Column_sel:
-            if column_data['table_name'] == table_name:
-                postColumnData={
-                    "column_name": column_data["column"]["columnName"],
-                    # "column_data_type": column_data["column"]["dataType"],
-                    "alias_name": find_column_alias(Alias_data, table_name, column_data["column"]["columnName"]) if len(Alias_data)>=0 else '',
-                    "table_column_query_id": def_query_id,
-                    "table_column_table_id": table_id,
-                    "created_by":created_by,
-                    "last_updated_by": last_updated_by
-                }
-                print("postColumnData", postColumnData)
-                queryColumnserilizer = qb_table_columns_serializers(data =postColumnData )          
-                if queryColumnserilizer.is_valid():
-                    queryColumnserilizer.save()
-                    fn_ins_upd_aggreation_data(Aggregation_data,table_name, column_data["column"]["columnName"],queryColumnserilizer.data['id'],table_id,def_query_id,created_by, last_updated_by)
-                else:
-                    print(queryColumnserilizer.errors)
-                    return Response("Column Selection and Alias Setup page not saved...", status=status.HTTP_400_BAD_REQUEST)
-            # for column_data in tabl_col_data["Page4"]["getSelectedColumn"]:
-            #     for col_single_data in column_data["table_columns"]:
-                    
-            #         col_alias_name = find_column_alias(tabl_col_data["Page4"]["getcolumnalias"],column_data["table_name"],col_single_data["columnName"]) 
-                    
-            #         tbl_id= find_table(tableListData,column_data["table_name"])
-                    
-            #         if col_alias_name is not None:
+    Column_sel = data['Page3'] if "Page3" in data else []
+    Alias_data = data['Page4']['getcolumnalias'] if "Page4" in data else []
+    Aggregation_data = data['Page5'] if "Page5" in data else []
+    if "Page3" in data:
+        if len(Column_sel) > 0:
+            for column_data in Column_sel:
+                if column_data['table_name'] == table_name:
+                    postColumnData={
+                        "column_name": column_data["column"]["columnName"],
+                        # "column_data_type": column_data["column"]["dataType"],
+                        "alias_name": find_column_alias(Alias_data, table_name, column_data["column"]["columnName"]) if len(Alias_data)>=0 else '',
+                        "table_column_query_id": def_query_id,
+                        "table_column_table_id": table_id,
+                        "created_by":created_by,
+                        "last_updated_by": last_updated_by
+                    }
+                    print("postColumnData", postColumnData)
+                    queryColumnserilizer = qb_table_columns_serializers(data =postColumnData )          
+                    if queryColumnserilizer.is_valid():
+                        queryColumnserilizer.save()
+                        fn_ins_upd_aggreation_data(Aggregation_data,table_name, column_data["column"]["columnName"],queryColumnserilizer.data['id'],table_id,def_query_id,created_by, last_updated_by)
+                    else:
+                        print(queryColumnserilizer.errors)
+                        return Response("Column Selection and Alias Setup page not saved...", status=status.HTTP_400_BAD_REQUEST)
+                # for column_data in tabl_col_data["Page4"]["getSelectedColumn"]:
+                #     for col_single_data in column_data["table_columns"]:
                         
-                        # postColumnData={
-                        #     "table_column_query_id": def_query_id,
-                        #     "column_name": col_single_data["columnName"],
-                        #     "table_column_table_id": tbl_id,
-                        #     "alias_name": col_alias_name["setAliasName"],
-                        #     "col_function":col_alias_name["setColumnFunction"],
-                        #     "created_by":created_by_id,
-                        #     "last_updated_by": last_updated_by_id
-                        # }
+                #         col_alias_name = find_column_alias(tabl_col_data["Page4"]["getcolumnalias"],column_data["table_name"],col_single_data["columnName"]) 
                         
+                #         tbl_id= find_table(tableListData,column_data["table_name"])
                         
-            #             if "id" in col_single_data:
+                #         if col_alias_name is not None:
                             
-            #                 columnTable = query_builder_table_columns.objects.get(id = col_single_data["id"])
-                            # queryColumnserilizer = qb_table_columns_serializers(instance = columnTable,data =postColumnData )
+                            # postColumnData={
+                            #     "table_column_query_id": def_query_id,
+                            #     "column_name": col_single_data["columnName"],
+                            #     "table_column_table_id": tbl_id,
+                            #     "alias_name": col_alias_name["setAliasName"],
+                            #     "col_function":col_alias_name["setColumnFunction"],
+                            #     "created_by":created_by_id,
+                            #     "last_updated_by": last_updated_by_id
+                            # }
                             
-                            # if (queryColumnserilizer.is_valid()):
-                            #         queryColumnserilizer.save() 
-            #                         columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
                             
-            #             else:
-                            
-            #                 queryColumnserilizer = qb_table_columns_serializers(data = postColumnData)
-            #                 if (queryColumnserilizer.is_valid()):
-            #                     queryColumnserilizer.save()
-            #                     columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
-                            
-            #         else:
-            #             postColumnData={
-            #                 "table_column_query_id": def_query_id,
-            #                 "column_name": col_single_data["columnName"],
-            #                 "table_column_table_id": tbl_id,
-            #                 "alias_name": None,
-            #                 "col_function":None,
-            #                 "created_by":created_by_id,
-            #                 "last_updated_by": last_updated_by_id
-            #             }
-                        
-            #             if "id" in col_single_data:
-                            
-            #                 columnTable = query_builder_table_columns.objects.get(id = col_single_data["id"])
-            #                 queryColumnserilizer = qb_table_columns_serializers(instance = columnTable,data =postColumnData )
-                            
-            #                 if (queryColumnserilizer.is_valid()):
-            #                     queryColumnserilizer.save()
-            #                     columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
-                            
-            #             else:
-                            
-            #                 queryColumnserilizer = qb_table_columns_serializers(data = postColumnData)
-            #                 if (queryColumnserilizer.is_valid()):
-            #                     queryColumnserilizer.save()
-            #                     columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
+                #             if "id" in col_single_data:
                                 
-            
-            # fn_ins_upd_aggreation_data(tabl_col_data,columnListId,tbl_id,def_query_id,created_by_id, last_updated_by_id,tableListData)
+                #                 columnTable = query_builder_table_columns.objects.get(id = col_single_data["id"])
+                                # queryColumnserilizer = qb_table_columns_serializers(instance = columnTable,data =postColumnData )
+                                
+                                # if (queryColumnserilizer.is_valid()):
+                                #         queryColumnserilizer.save() 
+                #                         columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
+                                
+                #             else:
+                                
+                #                 queryColumnserilizer = qb_table_columns_serializers(data = postColumnData)
+                #                 if (queryColumnserilizer.is_valid()):
+                #                     queryColumnserilizer.save()
+                #                     columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
+                                
+                #         else:
+                #             postColumnData={
+                #                 "table_column_query_id": def_query_id,
+                #                 "column_name": col_single_data["columnName"],
+                #                 "table_column_table_id": tbl_id,
+                #                 "alias_name": None,
+                #                 "col_function":None,
+                #                 "created_by":created_by_id,
+                #                 "last_updated_by": last_updated_by_id
+                #             }
+                            
+                #             if "id" in col_single_data:
+                                
+                #                 columnTable = query_builder_table_columns.objects.get(id = col_single_data["id"])
+                #                 queryColumnserilizer = qb_table_columns_serializers(instance = columnTable,data =postColumnData )
+                                
+                #                 if (queryColumnserilizer.is_valid()):
+                #                     queryColumnserilizer.save()
+                #                     columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
+                                
+                #             else:
+                                
+                #                 queryColumnserilizer = qb_table_columns_serializers(data = postColumnData)
+                #                 if (queryColumnserilizer.is_valid()):
+                #                     queryColumnserilizer.save()
+                #                     columnListId.append({'id':queryColumnserilizer.data["id"],"column_name":queryColumnserilizer.data["column_name"]})
+                                    
+                
+                # fn_ins_upd_aggreation_data(tabl_col_data,columnListId,tbl_id,def_query_id,created_by_id, last_updated_by_id,tableListData)
 
 
 def fn_ins_upd_aggreation_data(data,table_name,column_name,column_id,table_id,def_query_id,created_by, last_updated_by):
@@ -1215,37 +1299,38 @@ def find_table_id(data, table_name):
             return tabledata['table_id']
 
 def fn_ins_upd_join_data(data, table_data, def_query_id, created_by, last_updated_by):
-    Join_data = data["Page6"]["getjoinrows"]
-    if len(Join_data) > 0:
-        for jointableData in Join_data:
-            listofjointabledata = {
-                "join_column_name1": jointableData["selectedColumn"],
-                "join_column_name2": jointableData["selectedColumn2"],
-                "join_type": jointableData["selectedAttribute"],
-                "tab_join_table_id_one": find_table_id(table_data, jointableData["selectedTable"]),
-                "tab_join_table_id_two": find_table_id(table_data, jointableData["selectedTable2"]),
-                "tab_join_query_id": def_query_id,
-                "created_by": created_by,
-                "last_updated_by": last_updated_by
-            }
+    if "Page6" in data:
+        Join_data = data["Page6"]["getjoinrows"]
+        if len(Join_data) > 0:
+            for jointableData in Join_data:
+                listofjointabledata = {
+                    "join_column_name1": jointableData["selectedColumn"],
+                    "join_column_name2": jointableData["selectedColumn2"],
+                    "join_type": jointableData["selectedAttribute"],
+                    "tab_join_table_id_one": find_table_id(table_data, jointableData["selectedTable"]),
+                    "tab_join_table_id_two": find_table_id(table_data, jointableData["selectedTable2"]),
+                    "tab_join_query_id": def_query_id,
+                    "created_by": created_by,
+                    "last_updated_by": last_updated_by
+                }
 
-            if "id" in jointableData:
-                print("it have id")
-            #     joinTableData = query_builder_table_joins.objects.get(
-            #         id=jointableData["id"])
-            #     joinTableDataSerializers = qb_table_joins_serializers(
-            #         instance=joinTableData, data=listofjointabledata)
+                if "id" in jointableData:
+                    print("it have id")
+                #     joinTableData = query_builder_table_joins.objects.get(
+                #         id=jointableData["id"])
+                #     joinTableDataSerializers = qb_table_joins_serializers(
+                #         instance=joinTableData, data=listofjointabledata)
 
-            #     if joinTableDataSerializers.is_valid():
-            #         joinTableDataSerializers.save()
-            else:
-                joinTableDataSerializers = qb_table_joins_serializers(data=listofjointabledata)
-                if joinTableDataSerializers.is_valid():
-                    joinTableDataSerializers.save()
+                #     if joinTableDataSerializers.is_valid():
+                #         joinTableDataSerializers.save()
                 else:
-                    print(joinTableDataSerializers.errors)
-                    return Response("Table join data not saved...", status=status.HTTP_400_BAD_REQUEST)
-        fn_ins_upd_column_filter_data(data, table_data, def_query_id, created_by, last_updated_by)
+                    joinTableDataSerializers = qb_table_joins_serializers(data=listofjointabledata)
+                    if joinTableDataSerializers.is_valid():
+                        joinTableDataSerializers.save()
+                    else:
+                        print(joinTableDataSerializers.errors)
+                        return Response("Table join data not saved...", status=status.HTTP_400_BAD_REQUEST)
+            fn_ins_upd_column_filter_data(data, table_data, def_query_id, created_by, last_updated_by)
             
 
 # def fn_ins_upd_join_data(data, table_data, def_query_id, created_by, last_updated_by):
@@ -1282,29 +1367,31 @@ def fn_ins_upd_join_data(data, table_data, def_query_id, created_by, last_update
    
 
 def fn_ins_upd_column_filter_data(data, table_data, def_query_id, created_by, last_updated_by):
-    Column_sel = data['Page7']
-    if len(Column_sel) > 0:
-        for columnfilterdata in Column_sel:
-            listfiltercolumndata = {
-                "column_name": columnfilterdata["column_name"],
-                "column_filter": columnfilterdata["operator"],
-                "column_value": columnfilterdata["value"],
-                # "column_value": f"{columnfilterdata[i]['start_value']},{columnfilterdata[i]['end_value']}",
-                "tab_filter_query_id": def_query_id,
-                "tab_filter_tale_id": find_table_id(table_data, columnfilterdata["table_name"]),
-                "created_by": created_by,
-                "last_updated_by": last_updated_by
-            }
-            if 'id' in columnfilterdata:
-                print("it have id")
-            else:
-                columnfilterserializer = qb_table_column_filter_serializers(data=listfiltercolumndata)
-                if columnfilterserializer.is_valid():
-                    columnfilterserializer.save()
+    if 'Page7' in data:
+        Column_sel = data['Page7']
+        if len(Column_sel) > 0:
+            for columnfilterdata in Column_sel:
+                listfiltercolumndata = {
+                    "column_name": columnfilterdata["column_name"],
+                    "column_filter": columnfilterdata["operator"],
+                    "column_value": columnfilterdata["value"],
+                    # "column_value": f"{columnfilterdata[i]['start_value']},{columnfilterdata[i]['end_value']}",
+                    "tab_filter_query_id": def_query_id,
+                    "tab_filter_tale_id": find_table_id(table_data, columnfilterdata["table_name"]),
+                    "created_by": created_by,
+                    "last_updated_by": last_updated_by
+                }
+                if 'id' in columnfilterdata:
+                    print("it have id")
                 else:
-                    print("columnfilterserializer.errors", columnfilterserializer.errors)
-                    return Response("Column Filter page data is not saved...", status=status.HTTP_400_BAD_REQUEST)
-
+                    columnfilterserializer = qb_table_column_filter_serializers(data=listfiltercolumndata)
+                    if columnfilterserializer.is_valid():
+                        columnfilterserializer.save()
+                    else:
+                        print("columnfilterserializer.errors", columnfilterserializer.errors)
+                        return Response("Column Filter page data is not saved...", status=status.HTTP_400_BAD_REQUEST)
+    else:
+        return Response("Column Filter page data undefined...", status=status.HTTP_400_BAD_REQUEST)
     # return Response(columnfilterserializer.data, status=status.HTTP_200_OK)
 
 @api_view(["PUT"])
@@ -1371,7 +1458,6 @@ def findColumnId(requestAggregateData, column_id):
 
 def fun_ins_upd_builder_table(data, def_query_id, created_by, last_updated_by):
     Table_sel = data['Page2']
-    print("---- page2-table_selection ----", Table_sel)
     for table_data in Table_sel:                 
         postTableData = {
             "table_name": table_data["table_name"],
@@ -1415,57 +1501,58 @@ def fun_ins_upd_builder_table(data, def_query_id, created_by, last_updated_by):
                 return Response("Table Selection page not saved...", status=status.HTTP_400_BAD_REQUEST)
 
 def fun_ins_upd_table_selection(data, def_query_id, created_by, last_updated_by, allResponseData):
-    Table_sel = data['Page2']
-    savedtableIddata = []
-    ResponseData = []
-    for table_data in Table_sel:                 
-        postTableData = {
-            "table_name": table_data["table_name"],
-            "table_id": table_data["table_id"],
-            "query_id": def_query_id,
-            "created_by": created_by,
-            "last_updated_by": last_updated_by
-        }
-        if "id" in table_data and "query_id" in table_data:
-            print("table data have id")
-            # dataTable = query_builder_table.objects.get(id = table_data["id"],query_id = table_data["query_id"])
-            # querytableserilizer = qb_table_serializer(instance=dataTable, data=postTableData)
+    if "Page2" in data:
+        Table_sel = data['Page2']
+        savedtableIddata = []
+        ResponseData = []
+        for table_data in Table_sel:                 
+            postTableData = {
+                "table_name": table_data["table_name"],
+                "table_id": table_data["table_id"],
+                "query_id": def_query_id,
+                "created_by": created_by,
+                "last_updated_by": last_updated_by
+            }
+            if "id" in table_data and "query_id" in table_data:
+                print("table data have id")
+                # dataTable = query_builder_table.objects.get(id = table_data["id"],query_id = table_data["query_id"])
+                # querytableserilizer = qb_table_serializer(instance=dataTable, data=postTableData)
 
-            # postTableData = {
-            #     "table_name": table_data["table_name"],
-            #     "table_id": table_data["table_id"],
-            #     "query_id": def_query_id,
-            #     "created_by": created_by_id,
-            #     "last_updated_by": last_updated_by_id
-            # }
+                # postTableData = {
+                #     "table_name": table_data["table_name"],
+                #     "table_id": table_data["table_id"],
+                #     "query_id": def_query_id,
+                #     "created_by": created_by_id,
+                #     "last_updated_by": last_updated_by_id
+                # }
 
-            # if "id" in table_data and "query_id" in table_data["query_id"]:
-            #     dataTable = query_builder_table.objects.get(
-            #         id=table_data["id"], query_id=table_data["query_id"])
-            #     querytableserilizer = qb_table_serializer(
-            #         instance=dataTable, data=postTableData)
+                # if "id" in table_data and "query_id" in table_data["query_id"]:
+                #     dataTable = query_builder_table.objects.get(
+                #         id=table_data["id"], query_id=table_data["query_id"])
+                #     querytableserilizer = qb_table_serializer(
+                #         instance=dataTable, data=postTableData)
 
-            #     if querytableserilizer.is_valid():
-            #         querytableserilizer.save()
-                    # tableListData.append(
-                    #     {'id': querytableserilizer.data["id"], 'tb_name': querytableserilizer.data["table_name"]})
-            #     else:
-            #         return Response(querytableserilizer.errors, "err:", status=status.HTTP_400_BAD_REQUEST)
-        else:
-            querytableserilizer = qb_table_serializer(data=postTableData)
-            if querytableserilizer.is_valid():
-                querytableserilizer.save()
-                # ResponseData.append(querytableserilizer.data)
-                savedtableIddata.append({
-                    'table_id': querytableserilizer.data["id"], 
-                    'table_name': querytableserilizer.data["table_name"]
-                    })
-                fn_ins_upd_column_selection(data,table_data["table_name"], querytableserilizer.data['id'], def_query_id,created_by, last_updated_by)
+                #     if querytableserilizer.is_valid():
+                #         querytableserilizer.save()
+                        # tableListData.append(
+                        #     {'id': querytableserilizer.data["id"], 'tb_name': querytableserilizer.data["table_name"]})
+                #     else:
+                #         return Response(querytableserilizer.errors, "err:", status=status.HTTP_400_BAD_REQUEST)
             else:
-                print(queryDefnitionSerilazier.errors)
-                return Response("Table Selection page not saved...", status=status.HTTP_400_BAD_REQUEST)
-    # allResponseData['Page2'] = ResponseData
-    fn_ins_upd_join_data(data,savedtableIddata, def_query_id,created_by,last_updated_by)
+                querytableserilizer = qb_table_serializer(data=postTableData)
+                if querytableserilizer.is_valid():
+                    querytableserilizer.save()
+                    # ResponseData.append(querytableserilizer.data)
+                    savedtableIddata.append({
+                        'table_id': querytableserilizer.data["id"], 
+                        'table_name': querytableserilizer.data["table_name"]
+                        })
+                    fn_ins_upd_column_selection(data,table_data["table_name"], querytableserilizer.data['id'], def_query_id,created_by, last_updated_by)
+                else:
+                    print(queryDefnitionSerilazier.errors)
+                    return Response("Table Selection page not saved...", status=status.HTTP_400_BAD_REQUEST)
+        # allResponseData['Page2'] = ResponseData
+        fn_ins_upd_join_data(data,savedtableIddata, def_query_id,created_by,last_updated_by)
 
 
 
@@ -1478,8 +1565,8 @@ def ins_and_upd_connection_data(request):
         query_definition_data = {
             "query_name": Query_def['query_name'],
             "connection_id": Query_def["savedConnectionItems"]["id"],
-            "query_text": Query_def["savedConnectionItems"]["connection_name"],
-            "query_status": False,
+            "query_text": Query_def["query_text"] if "query_text" in Query_def else '',
+            "query_status": True if "query_text" in Query_def else False,
             "query_type": False,
             "created_user": Query_def["created_user"],
             "created_by": Query_def["created_by"],
@@ -1681,6 +1768,7 @@ def convert_to_database_date(date_str):
     datetime_format = '%Y-%m-%dT%H:%M:%S.%f' if '.' in date_str else '%Y-%m-%dT%H:%M:%S'
     return datetime.strptime(date_str, datetime_format).strftime('%Y-%m-%d %H:%M:%S')
 
+# from functools import cache
 
 @api_view(["POST"])
 def dataprofileCompare(request):

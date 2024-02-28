@@ -28,11 +28,18 @@ import snowflake.connector
 
 
 # Get Currencies
+from functools import cache, lru_cache
+# from cachetools import cached, TTLCache
+import time
 
-
+# @lru_cache(maxsize=10)
+# @cached(cache=TTLCache(maxsize=2, ttl=400))
+# @cache
+# @cached(cache=TTLCache(maxsize=10, ttl=2000))
 @api_view(["PUT"])
 def get_ydata_profiling_report(request):
-    
+    print("Calleddd....")
+    starttime = time.time()
     connnectionrequestdata = request.data
     saved_connection = connnectionrequestdata["savedConnectionItems"]
     customised_data = connnectionrequestdata["noncustomdata"]
@@ -189,10 +196,194 @@ def get_ydata_profiling_report(request):
             )
     
     data = report.to_html()
+    print(f"Execution Time {time.time()-starttime}")
 
     return HttpResponse(data, content_type='text/html')
 
 # ! Test End
+
+import numpy as np
+@api_view(["PUT"])
+def get_data_quality_report(request):
+    print("Data Quality Called...")
+    starttime = time.time()
+    connnectionrequestdata = request.data
+    saved_connection = connnectionrequestdata["savedConnectionItems"]
+    customised_data = connnectionrequestdata["noncustomdata"]
+    correlation_data = connnectionrequestdata["customdata"][0]["correlations"]
+    time_series_data = connnectionrequestdata["timeseriesdata"]
+            
+    db_type = saved_connection.get("connection_type")
+
+    query = connnectionrequestdata["query_text"]
+    query_name = connnectionrequestdata["query_name"]
+    
+    if db_type == 'MYSQL':
+
+        try:
+
+            query = connnectionrequestdata["query_text"]
+            query_name = connnectionrequestdata["query_name"]
+
+            mydb = sqlConnect.connect(
+                host=saved_connection.get("host_id"),
+                user=saved_connection.get("user_name"),
+                password=saved_connection.get("password"),
+                database=saved_connection.get("database_name"),
+            )
+
+            mycursor = mydb.cursor(dictionary=True)
+
+            mycursor.execute(query)
+
+            headercolumn = [col[0] for col in mycursor.description]
+            
+            results = mycursor.fetchall()
+            
+            mycursor.close()
+            
+            mydb.close()
+            
+        except sqlConnect.Error as e:
+            # Handle the database-related errors, including syntax errors
+            error_message = str(e)
+
+            return HttpResponse(error_message, status=status.HTTP_400_BAD_REQUEST)
+
+        finally:
+            mycursor.close()
+            mydb.close()
+
+    elif db_type == "Snowflake":
+        
+        # Build the connection string
+        connection_str = {
+            'user': 'REVANRUFUS',
+            'password': 'Revan@062797',
+            'account': 'vi82049.ap-southeast-1',
+            'warehouse': 'MY_WH',
+            'database': 'smpledb',
+            'schema': 'public',
+            # 'role': saved_connection.get('role'),
+        }
+        
+        try:
+            # Attempt to connect to Snowflake
+            connection = snowflake.connector.connect(**connection_str)
+
+            cursor = connection.cursor()
+
+            cursor.execute(query)
+            
+            headercolumn= [col[0] for col in cursor.description]
+            
+            results  = cursor.fetchall()
+            
+            cursor.close()
+            
+            connection.close()
+            
+        except snowflake.connector.errors.ProgrammingError as e:
+            # Handle Snowflake ProgrammingError
+            error_message = f"Snowflake ProgrammingError: {str(e)}"
+            return HttpResponse(error_message, status=status.HTTP_400_BAD_REQUEST)
+
+        except snowflake.connector.errors.DatabaseError as e:
+            # Handle Snowflake DatabaseError
+            error_message = f"Snowflake DatabaseError: {str(e)}"
+            return HttpResponse(error_message, status=status.HTTP_400_BAD_REQUEST)
+
+        finally:
+            # Close the cursor and connection in the finally block
+            cursor.close()
+            connection.close()
+    
+    elif db_type == "Oracle":
+
+        connection_str = f"{saved_connection.get('user_name')}/{saved_connection.get('password')}@{saved_connection.get('host_id')}:{saved_connection.get('port')}/{saved_connection.get('service_name_or_SID')}"
+        
+        # cursor = None
+        # connection = None
+
+        try:
+
+            connection = cx_Oracle.connect(connection_str)
+            
+            # Create a cursor            
+            cursor = connection.cursor()
+
+            # Execute the queries
+            cursor.execute(query)
+
+            # Fetch column names from the cursor description
+            headercolumn = [col[0] for col in cursor.description]
+            
+            results = cursor.fetchall()
+        
+            cursor.close()
+            
+            connection.close()
+            
+        except cx_Oracle.Error as e:
+                # Handle Oracle errors
+            error_message = f"Oracle error: {str(e)}"
+            return HttpResponse(error_message, status=status.HTTP_400_BAD_REQUEST)
+
+        # finally:
+        #     # Close the cursor and connection in the finally block
+        #     cursor.close()
+        #     connection.close()
+
+    df_original = pd.DataFrame(results, columns= headercolumn if headercolumn else None)
+    df = df_original.replace('',np.nan,regex = True)
+    print("df", df)
+    print("-------------------------------------------------")
+    print("Table wise Quality")
+    # del df['id']
+    # df.drop('id', axis=1)
+    # print("df", df)
+    print("Find dupicate rows ",df.duplicated().tolist().count(True))
+    print("-------------------------------------------------")
+    print("Column wise Quality")
+    for col in headercolumn:
+        # z_scores = (df[col] - df[col].mean()) / df[col].std()
+        # outliers = df[abs(z_scores) > 3]
+        print(col,":")
+        print("     Missing_value - ", df[col].isnull().tolist().count(True))
+        print("     Dublicated_values - ", df[col].duplicated().tolist().count(True))
+        print("     Outliers - ", z_scores)
+        print("     ----------      ")
+    
+    # report = ProfileReport(df, title= query_name,
+    #             dataset={
+    #                 "description": "This profiling report was generated by CITTABASE Solutions Pte. Ltd.",
+    #                 "copyright_holder": "2024 Cittabase Solutions", # © 2024 Copyright Cittabase Solutions
+    #                 # "copyright_year": 2024,
+    #                 "url": "https://www.cittabase.com/",
+    #             },
+    #             interactions={"continuous": False if customised_data[0]["value"] == False else True,"targets": []}, 
+    #             correlations={"auto": {"calculate": True if correlation_data[0]["status"] == True and correlation_data[0]["method"] == "Auto" else False},
+    #                             "pearson": {"calculate": True if correlation_data[1]["status"] == True and correlation_data[1]["method"] == "Pearson" else False},
+    #                             "spearman": {"calculate": True if correlation_data[2]["status"] == True and correlation_data[2]["method"] == "Spearman" else False},
+    #                             "kendall": {"calculate": True if correlation_data[3]["status"] == True and correlation_data[3]["method"] == "Kendall" else False},
+    #                             "phi_k": {"calculate": True if correlation_data[4]["status"] == True and correlation_data[4]["method"] == "Phi K" else False},
+    #                             "cramers": {"calculate": True if correlation_data[5]["status"] == True and correlation_data[5]["method"] == "Cramers" else False}
+    #                         },
+    #             missing_diagrams={
+    #                 "heatmap": True if customised_data[1]["value"] == True else False,
+    #                 "bar": True if customised_data[1]["value"] == True else False,
+    #                 "matrix": True if customised_data[1]["value"] == True else False
+    #             },
+    #             sensitive= False if customised_data[2]["value"] == True else True,
+    #             tsmode= True if time_series_data[0]["value"] == True else False,
+    #             # sortby="created_date",
+    #             # duplicates=None,
+    #         )
+    
+    # data = report.to_html()
+    print(f"Execution Time {time.time()-starttime}")
+
+    return HttpResponse(df, content_type='text/html')
 
 
 @api_view(["GET"])

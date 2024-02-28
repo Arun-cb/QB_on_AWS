@@ -192,6 +192,7 @@ urlpatterns = [
     path("load_data", rb_views.load_data),
 
     path("get_ydata_profiling_report", views.get_ydata_profiling_report),
+    path("get_data_quality_report", views.get_data_quality_report),
 
      # path("get_rb_connect_definition_table", views.get_rb_rest_connect_table),
      # path("get_rb_connect_definition_table/<int:id>/", views.get_rb_rest_connect_table),
